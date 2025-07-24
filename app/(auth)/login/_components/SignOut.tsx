@@ -3,6 +3,7 @@ import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 
 import React from "react";
+import { toast } from "sonner";
 
 const SignOut = () => {
   const { data: session, isPending } = authClient.useSession();
@@ -11,11 +12,8 @@ const SignOut = () => {
     await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
-          console.log("Sign out successful");
+          toast.success("Signed out successfully");
           router.push("/login");
-        },
-        onError: (error) => {
-          console.error("Sign out failed", error);
         },
       },
     });

@@ -27,7 +27,7 @@ export default async function Home() {
               <Link href="/login" className="text-blue-500 hover:underline">
                 login
               </Link>
-              to continue
+              to continue.
             </p>
           )}
         </div>
