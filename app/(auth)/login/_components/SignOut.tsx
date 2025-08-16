@@ -25,20 +25,15 @@ const SignOut = () => {
       <div className="text-center">
         {session ? (
           <div>
-            <h1 className="text-2xl font-bold mb-4">You are signed in</h1>
             <button
-              className="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer"
+              className="cursor-pointer"
               onClick={signOut}
               disabled={isPending}
             >
-              {isPending ? "Signing out..." : "Sign Out"}
+              {isPending ? "Logging out..." : "Log Out"}
             </button>
           </div>
-        ) : (
-          <div>
-            <h1 className="text-2xl font-bold mb-4">You are not signed in</h1>
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
