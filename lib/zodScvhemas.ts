@@ -1,7 +1,5 @@
-import { z } from "zod";
+import { z, ZodNumber } from "zod";
 
-export const courseLvels = ["Beginner", "Intermediate", "Advanced"];
-export const courseStatus = ["Draft", "Published", "Archived"];
 export const courseCategories = [
   "Web Design",
   "Web Development",
@@ -11,13 +9,15 @@ export const courseCategories = [
   "Health & Fitness",
   "Artificial Inteligence",
 ] as const;
+export const courseLvels = ["Beginner", "Intermediate", "Advanced"] as const;
+export const courseStatus = ["Draft", "Published", "Archived"] as const;
 
 export const courseSchema = z.object({
   title: z.string().min(3).max(100),
   description: z.string().min(20),
-  fileKey: z.string(),
-  price: z.number().min(1).max(500),
-  duration: z.number().min(1).max(500),
+  fileKey: z.string().min(1, { message: "File is required" }),
+  price: z.coerce.number().min(1) as ZodNumber,
+  duration: z.coerce.number().min(1) as ZodNumber,
   level: z.enum(courseLvels),
   status: z.enum(courseStatus),
   category: z.enum(courseCategories),

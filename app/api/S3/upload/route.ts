@@ -2,7 +2,8 @@ import { s3 } from "@/lib/S3Client";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
-import { boolean, uuidv4, z } from "zod";
+import { boolean, z } from "zod";
+import { v4 as uuidv4 } from "uuid";
 
 const fileUploadSchema = z.object({
   fileName: z.string().min(1, { message: "File Name is required" }),

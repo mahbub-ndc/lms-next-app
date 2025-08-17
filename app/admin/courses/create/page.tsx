@@ -43,16 +43,25 @@ import {
 } from "@/components/ui/select";
 import RichTextEditor from "@/components/Rich-Text-Editor/Editor";
 import { FileUploader } from "@/components/FileUploader/FileUploader";
+import { file } from "zod";
+import { useTransition } from "react";
+import { CreateCourse } from "./actions";
+
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export default function CourseCreate() {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
   const form = useForm<CourseSchemaType>({
     resolver: zodResolver(courseSchema),
     defaultValues: {
       title: "",
       description: "",
       fileKey: "",
-      price: 0,
-      duration: 0,
+      price: 0 as number,
+      duration: 0 as number,
       level: "Beginner",
       category: "Web Design",
       slug: "",
@@ -62,6 +71,20 @@ export default function CourseCreate() {
   });
 
   function onSubmit(values: CourseSchemaType) {
+    startTransition(async () => {
+      try {
+        const result = await CreateCourse(values);
+        if (result.success) {
+          toast.success("Course created successfully");
+          form.reset();
+          router.push(`/admin/courses/`);
+        } else {
+          toast.error("Failed to create course");
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    });
     console.log(values);
   }
 
@@ -170,13 +193,16 @@ export default function CourseCreate() {
               <FormField
                 control={form.control}
                 name="fileKey"
+                rules={{ required: "File is required" }} // ✅ enforce required
                 render={({ field }) => (
                   <FormItem className="w-full">
                     <FormLabel>Thumbnail Image</FormLabel>
                     <FormControl>
-                      <FileUploader />
+                      <FileUploader
+                        value={field.value} // uploaded S3 key
+                        onChange={(key) => field.onChange(key)} // pass S3 key to form
+                      />
                     </FormControl>
-
                     <FormMessage />
                   </FormItem>
                 )}
