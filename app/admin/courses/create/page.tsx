@@ -101,7 +101,7 @@ export default function CourseCreate() {
           <ArrowLeft className="size-4" />
         </Link>
         <div>
-          <h3>Create Courses</h3>
+          <h3>All Courses</h3>
         </div>
       </div>
       <Card>
@@ -149,7 +149,7 @@ export default function CourseCreate() {
                   onClick={() => {
                     const titleValue = form.getValues("title");
                     //console.log(titleValue);
-                    const slug = slugify(titleValue);
+                    const slug = slugify(titleValue).toLowerCase();
                     form.setValue("slug", slug, { shouldValidate: true });
                   }}
                 >

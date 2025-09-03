@@ -2,8 +2,9 @@ import { s3 } from "@/lib/S3Client";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
-import { boolean, z } from "zod";
+import { boolean, file, z } from "zod";
 import { v4 as uuidv4 } from "uuid";
+import { Key } from "lucide-react";
 
 const fileUploadSchema = z.object({
   fileName: z.string().min(1, { message: "File Name is required" }),
@@ -25,12 +26,12 @@ export const POST = async (request: Request) => {
     const { fileName, contentType, size } = validation.data;
     const command = new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME,
-      Key: `${uuidv4()}-${fileName}`,
+      Key: fileName,
       ContentType: contentType,
       ContentLength: size,
     });
     const presignedUrl = await getSignedUrl(s3, command, { expiresIn: 360 });
-    return NextResponse.json({ presignedUrl, Key: `${uuidv4()}-${fileName}` });
+    return NextResponse.json({ presignedUrl, Key: fileName });
   } catch (err) {
     console.log(err);
     return NextResponse.json(

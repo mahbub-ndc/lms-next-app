@@ -5,6 +5,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./db";
 import { env } from "./env";
 const resend = new Resend(env.RESEND_API_KEY);
+import { admin } from "better-auth/plugins";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -30,5 +31,6 @@ export const auth = betterAuth({
       otpLength: 6, // Length of the OTP
       expiresIn: 600, // OTP expiration time
     }),
+    admin(),
   ],
 });

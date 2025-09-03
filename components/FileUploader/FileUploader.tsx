@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { use, useCallback, useEffect, useState } from "react";
 import { FileRejection, useDropzone } from "react-dropzone";
 import { Card } from "../ui/card";
 import { cn } from "@/lib/utils";
 import { UploadCloudIcon } from "lucide-react";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
+import { file, object } from "better-auth";
+import { useConstructUrl } from "@/hooks/use-construct-url";
 
 interface FileUpload {
   id: string | null;
@@ -24,6 +26,7 @@ interface IAppProps {
 }
 
 export const FileUploader = ({ onChange, value }: IAppProps) => {
+  const fileUrl = useConstructUrl(value || "");
   const [uploadState, setUploadState] = useState<FileUpload>({
     error: false,
     file: null,
@@ -33,6 +36,7 @@ export const FileUploader = ({ onChange, value }: IAppProps) => {
     fileType: "image",
     isDeleting: false,
     key: value,
+    //objectUrl: fileUrl,
   });
 
   // Cleanup object URL to avoid memory leaks
@@ -185,8 +189,7 @@ export const FileUploader = ({ onChange, value }: IAppProps) => {
       {uploadState.objectUrl ? (
         <div className="flex flex-col items-center w-full px-4">
           <img
-            src={uploadState.objectUrl}
-            alt="preview"
+            src={uploadState?.objectUrl}
             className="h-48 object-contain m-auto py-2"
           />
           {uploadState.uploading && (

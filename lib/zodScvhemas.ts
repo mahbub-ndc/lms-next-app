@@ -21,7 +21,7 @@ export const courseSchema = z.object({
   level: z.enum(courseLvels),
   status: z.enum(courseStatus),
   category: z.enum(courseCategories),
-  smallDescription: z.string().min(3).max(100),
+  smallDescription: z.string().min(3).max(200),
   slug: z.string().min(3),
 });
 

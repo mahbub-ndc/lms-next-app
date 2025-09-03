@@ -1,4 +1,5 @@
 "use server";
+import { requireAdmin } from "@/app/data/admin/require-admin";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { CourseLevel, CourseStatus } from "@/lib/generated/prisma";
@@ -14,12 +15,8 @@ import { headers } from "next/headers";
 import z from "zod";
 
 export const CreateCourse = async (data: CourseSchemaType) => {
+  const session = await requireAdmin();
   try {
-    // Get session
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
     if (!session?.user?.id) {
       throw new Error("User not authenticated");
     }
