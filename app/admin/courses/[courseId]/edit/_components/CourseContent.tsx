@@ -1,6 +1,5 @@
 "use client";
 
-import React, { useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -14,14 +13,22 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-
+import { useState } from "react";
+import {
+  GetSingleCourseType,
+  ReorderCourseContent,
+} from "../../../getCourse/GetSingleCourse";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   ChevronDown,
   ChevronRight,
@@ -29,10 +36,34 @@ import {
   GripVertical,
   Trash2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
-// -------------------- SortableItem --------------------
-export interface sortableItemProps {
+// -----------------------------
+// TypeScript types
+// -----------------------------
+type Lesson = {
+  id: string;
+  title: string;
+  videoKey?: string | null;
+  description?: string | null;
+  thumbnailKey?: string | null;
+  order: number;
+};
+
+type Chapter = {
+  id: string;
+  title: string;
+  order: number;
+  isOpen: boolean;
+  lessons: Lesson[];
+};
+
+interface iAppProps {
+  data: GetSingleCourseType;
+}
+
+export interface SortableItemProps {
   id: string;
   children: (listeners: DraggableSyntheticListeners) => React.ReactNode;
   className?: string;
@@ -42,86 +73,27 @@ export interface sortableItemProps {
   };
 }
 
-export function SortableItem({
-  children,
-  id,
-  className,
-  data,
-}: sortableItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, data });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    cursor: "grab",
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      className={cn("touch-auto", className, isDragging ? "z-10" : "z-0")}
-    >
-      {children(listeners)}
-    </div>
-  );
-}
-
-// -------------------- Types --------------------
-interface Lesson {
-  id: string;
-  title: string;
-  description: string | null;
-  position: number;
-  thumbnailKey: string | null;
-  videoKey: string | null;
-}
-
-interface Chapter {
-  id: string;
-  title: string;
-  position: number;
-  lessons: Lesson[];
-}
-
-export interface GetSingleCourseType {
-  chapter: Chapter[];
-  // other fields like level, etc.
-}
-
-interface iAppProps {
-  data: GetSingleCourseType | null;
-}
-
-// -------------------- CourseContent --------------------
+// -----------------------------
+// Component
+// -----------------------------
 export default function CourseContent({ data }: iAppProps) {
-  const initialData =
-    data?.chapter?.map((chapter) => ({
+  const initialItems: Chapter[] =
+    data?.chapter.map((chapter) => ({
       id: chapter.id,
       title: chapter.title,
       order: chapter.position,
-      isOpen: false, // start collapsed
-      lessons:
-        chapter.lessons?.map((lesson) => ({
-          id: lesson.id,
-          title: lesson.title,
-          order: lesson.position,
-          description: lesson.description,
-          thumbnailKey: lesson.thumbnailKey,
-          videoKey: lesson.videoKey,
-        })) || [],
+      isOpen: true,
+      lessons: chapter.lessons.map((lesson) => ({
+        id: lesson.id,
+        title: lesson.title,
+        videoKey: lesson.videoKey,
+        description: lesson.description,
+        thumbnailKey: lesson.thumbnailKey,
+        order: lesson.position,
+      })),
     })) || [];
 
-  const [items, setItems] = useState(initialData);
+  const [items, setItems] = useState<Chapter[]>(initialItems);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -130,6 +102,43 @@ export default function CourseContent({ data }: iAppProps) {
     })
   );
 
+  // -----------------------------
+  // SortableItem helper
+  // -----------------------------
+  function SortableItem({ id, children, className, data }: SortableItemProps) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id, data });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+    };
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        className={cn(
+          "touch-none",
+          className,
+          isDragging ? "z-10" : "z-0 opacity-80"
+        )}
+      >
+        {children(listeners)}
+      </div>
+    );
+  }
+
+  // -----------------------------
+  // Toggle chapter open/close
+  // -----------------------------
   function toggleOpen(chapterId: string) {
     setItems((prev) =>
       prev.map((item) =>
@@ -138,131 +147,150 @@ export default function CourseContent({ data }: iAppProps) {
     );
   }
 
+  // -----------------------------
+  // Handle drag end
+  // -----------------------------
   function handleDragEnd(event: { active: any; over: any }) {
     const { active, over } = event;
-    if (!over) return;
+    if (!over || active.id === over.id) return;
 
-    if (active.id === over.id) return;
+    const activeId = active.id;
+    const overId = over.id;
+    const activeType = active.data.current?.type as "chapter" | "lesson";
+    const overType = over.data.current?.type as "chapter" | "lesson";
 
-    setItems((prev) => {
-      // --- CASE 1: Reordering chapters ---
-      if (
-        active.data.current?.type === "chapter" &&
-        over.data.current?.type === "chapter"
-      ) {
-        const oldIndex = prev.findIndex((item) => item.id === active.id);
-        const newIndex = prev.findIndex((item) => item.id === over.id);
-        return arrayMove(prev, oldIndex, newIndex);
-      }
+    // -----------------------------
+    // Reorder chapters
+    // -----------------------------
+    if (activeType === "chapter" && overType === "chapter") {
+      const activeIndex = items.findIndex((item) => item.id === activeId);
+      const overIndex = items.findIndex((item) => item.id === overId);
+      if (activeIndex === -1 || overIndex === -1) return;
 
-      // --- CASE 2: Reordering lessons inside the same chapter ---
-      if (
-        active.data.current?.type === "lesson" &&
-        over.data.current?.type === "lesson"
-      ) {
-        const activeChapterId = active.data.current.chapterId;
-        const overChapterId = over.data.current.chapterId;
+      const reordered = arrayMove(items, activeIndex, overIndex);
+      setItems(reordered);
 
-        // only reorder inside SAME chapter
-        if (activeChapterId === overChapterId) {
-          return prev.map((chapter) => {
-            if (chapter.id !== activeChapterId) return chapter;
+      // Update DB outside state update
+      ReorderCourseContent({
+        chapters: reordered.map((c, idx) => ({ id: c.id, position: idx + 1 })),
+      });
+      return;
+    }
 
-            const oldIndex = chapter.lessons.findIndex(
-              (l) => l.id === active.id
-            );
-            const newIndex = chapter.lessons.findIndex((l) => l.id === over.id);
+    // -----------------------------
+    // Reorder lessons (same chapter only)
+    // -----------------------------
+    if (activeType === "lesson" && overType === "lesson") {
+      const activeChapterId = active.data.current.chapterId;
+      const overChapterId = over.data.current.chapterId;
 
-            return {
-              ...chapter,
-              lessons: arrayMove(chapter.lessons, oldIndex, newIndex),
-            };
-          });
-        }
-      }
+      if (!activeChapterId || activeChapterId !== overChapterId) return;
 
-      return prev;
-    });
+      const chapterIndex = items.findIndex((c) => c.id === activeChapterId);
+      if (chapterIndex === -1) return;
+
+      const chapter = items[chapterIndex];
+      const oldIndex = chapter.lessons.findIndex((l) => l.id === activeId);
+      const newIndex = chapter.lessons.findIndex((l) => l.id === overId);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reorderedLessons = arrayMove(
+        chapter.lessons,
+        oldIndex,
+        newIndex
+      ).map((lesson, idx) => ({ ...lesson, order: idx + 1 }));
+
+      const newItems = [...items];
+      newItems[chapterIndex] = { ...chapter, lessons: reorderedLessons };
+      setItems(newItems);
+
+      ReorderCourseContent({
+        lessons: reorderedLessons.map((l) => ({
+          id: l.id,
+          position: l.order,
+          chapterId: activeChapterId,
+        })),
+      });
+    }
   }
 
-  if (!data) {
-    return <div>No course data found.</div>;
-  }
-
+  // -----------------------------
+  // Render
+  // -----------------------------
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between border-b">
-          <CardTitle>Chapters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SortableContext items={items} strategy={verticalListSortingStrategy}>
-            {items.map((chapter) => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Chapters</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={items.map((c) => c.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {items.map((item) => (
               <SortableItem
-                key={chapter.id}
-                id={chapter.id}
+                id={item.id}
+                key={item.id}
                 data={{ type: "chapter" }}
               >
                 {(listeners) => (
-                  <Card>
+                  <Card className="mb-4">
                     <Collapsible
-                      open={chapter.isOpen}
-                      onOpenChange={() => toggleOpen(chapter.id)}
+                      open={item.isOpen}
+                      onOpenChange={() => toggleOpen(item.id)}
                     >
-                      <CardHeader className="flex flex-row items-center justify-between border-b">
-                        <div className="flex flex-row items-center gap-2">
-                          {/* Drag handle */}
-                          <button {...listeners}>
-                            <GripVertical size={20} />
-                          </button>
-
-                          {/* Toggle button */}
-                          <button onClick={() => toggleOpen(chapter.id)}>
-                            {chapter.isOpen ? (
-                              <ChevronDown size={20} />
+                      <div className="flex items-center justify-between p-3 border-b border-border">
+                        <div className="flex items-center gap-3">
+                          <Button {...listeners}>
+                            <GripVertical size={24} />
+                          </Button>
+                          <CollapsibleTrigger>
+                            {item.isOpen ? (
+                              <ChevronDown size={24} />
                             ) : (
-                              <ChevronRight size={20} />
+                              <ChevronRight size={24} />
                             )}
-                          </button>
-
-                          <span className="text-muted-foreground hover:text-primary">
-                            {chapter.title}
-                          </span>
+                          </CollapsibleTrigger>
+                          <p className="font-semibold hover:text-primary cursor-pointer">
+                            {item.title}
+                          </p>
                         </div>
-                        <Button variant="ghost" size="icon">
-                          <Trash2 className="h-4 w-4" />
+                        <Button className="text-white hover:text-destructive cursor-pointer">
+                          <Trash2 size={24} />
                         </Button>
-                      </CardHeader>
-
-                      <CollapsibleContent className="p-2">
+                      </div>
+                      <CollapsibleContent>
                         <SortableContext
-                          items={chapter.lessons}
+                          items={item.lessons.map((lesson) => lesson.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          {chapter.lessons.map((lesson) => (
+                          {item.lessons.map((lesson) => (
                             <SortableItem
-                              key={lesson.id}
                               id={lesson.id}
-                              data={{ type: "lesson", chapterId: chapter.id }}
+                              key={lesson.id}
+                              data={{ type: "lesson", chapterId: item.id }}
                             >
                               {(listeners) => (
-                                <CardContent>
-                                  <div className="flex flex-row items-center gap-2">
-                                    {/* Drag handle */}
-                                    <button {...listeners}>
-                                      <GripVertical size={20} />
-                                    </button>
-
-                                    <span className="flex flex-row items-center gap-2 text-muted-foreground hover:text-primary">
-                                      <FileText size={20} />
+                                <div className="p-3 border-b border-border flex items-center">
+                                  <Button {...listeners} variant="ghost">
+                                    <GripVertical size={24} />
+                                  </Button>
+                                  <Button variant="ghost">
+                                    <FileText size={24} />
+                                  </Button>
+                                  <p className="font-semibold hover:text-primary cursor-pointer">
+                                    <Link
+                                      href={`/admin/courses/${data?.id}/edit/lessons/${lesson.id}`}
+                                    >
                                       {lesson.title}
-                                    </span>
-                                  </div>
-                                </CardContent>
+                                    </Link>
+                                  </p>
+                                </div>
                               )}
                             </SortableItem>
                           ))}
@@ -274,8 +302,8 @@ export default function CourseContent({ data }: iAppProps) {
               </SortableItem>
             ))}
           </SortableContext>
-        </CardContent>
-      </Card>
-    </DndContext>
+        </DndContext>
+      </CardContent>
+    </Card>
   );
 }
